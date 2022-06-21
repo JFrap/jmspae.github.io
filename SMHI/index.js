@@ -16,6 +16,16 @@ var colorPalette = {
     '1.0': [215, 25, 28, 1.0],
 };
 
+function formatUnixTime(timestamp) {
+    var date = new Date(timestamp);
+    var now = Date.now();
+    var diff = new Date(now - date);
+
+
+    // Will display time in 10:30 format
+    return diff.getMinutes() + " minutes ago.";
+}
+
 function lerpCols(col2, col1, x) {
     var colRet = new Array(4);
     for (var i = 0; i < 4; i++) {
@@ -41,7 +51,7 @@ function lerpPalette(x) {
     return ret;
 }
 
-const crossAuto = function(feature) {
+const tempNear = function(feature) {
     var cross = new ol.style.Style({
             image: new ol.style.RegularShape({
                 fill: new ol.style.Fill({color: 'red'}),
@@ -52,7 +62,33 @@ const crossAuto = function(feature) {
                 points: 4,
                 radius: 10,
                 radius2: 0,
-                angle: (feature.get('stationValue') / 25) * (Math.PI/4),
+                angle: (feature.get('stationValue') / 30) * (Math.PI/4),
+            }),
+            text: new ol.style.Text({
+                font: '20px sans',
+                text: feature.get('stationValue') + "°C",
+                offsetX: 20,
+                offsetY: -20,
+                fill: new ol.style.Fill({
+                  color: lerpPalette(feature.get('stationValue') / 30)
+                })
+            }),
+        });
+    return [cross];
+}
+
+const tempFar = function(feature) {
+    var cross = new ol.style.Style({
+            image: new ol.style.RegularShape({
+                fill: new ol.style.Fill({color: 'red'}),
+                stroke: new ol.style.Stroke({
+                    color: lerpPalette(feature.get('stationValue') / 30), 
+                    width: 3
+                }),
+                points: 4,
+                radius: 10,
+                radius2: 0,
+                angle: (feature.get('stationValue') / 30) * (Math.PI/4),
             })
         });
     return [cross];
@@ -65,7 +101,7 @@ var vectorSource = new ol.source.Vector({
 
 var vectorLayer = new ol.layer.Vector({
     source : vectorSource,
-    style : crossAuto
+    style : tempFar
 })
 
 
@@ -96,7 +132,39 @@ var map = new ol.Map({
     })
 });
 
+var popup = new Popup();
+map.addOverlay(popup);
 
+map.on('moveend', function(evt) {
+    if (evt.map.getView().getZoom() > 7) {
+        vectorLayer.setStyle(tempNear);
+    }
+    else {
+        vectorLayer.setStyle(tempFar);
+    }
+});
+
+map.on('singleclick', function(evt) {
+    var feat = null;
+    
+    map.forEachFeatureAtPixel(evt.pixel, 
+        function(feature, layer) {
+            feat = feature;
+        },
+        { hitTolerance: 10 }
+    );
+
+    if (feat != null) {
+        var str = '<div><b>'+feat.get('stationName')+'</b><br>';
+        str += feat.get('stationValue') + '°C<br>'
+        str += formatUnixTime(feat.get('stationValueDate')) + '</div>';
+
+        popup.show(feat.getGeometry().getCoordinates(), str);
+    }
+    else {
+        popup.hide()
+    }
+});
 
 function onGetData(response) {
     station_list = JSON.parse(response)['station'];
@@ -110,9 +178,10 @@ function onGetData(response) {
                     geometry: new ol.geom.Point(ol.proj.fromLonLat([station['longitude'], station['latitude']])),
                     stationName: station['name'],
                     stationValue: station['value'][0]['value'],
+                    stationValueDate: station['value'][0]['date']
                 }));
                 
-                //console.log(station);
+                console.log(station);
             }
         }
     }
