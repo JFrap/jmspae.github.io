@@ -71,6 +71,12 @@ var vectorLayer = new ol.layer.Vector({
 
 var map = new ol.Map({
     target: 'map',
+    controls: ol.control.defaults({
+        attributionOptions: ({
+            collapsible: false
+        })
+    }),
+
     layers: [
         new ol.layer.Tile({
             source: new ol.source.XYZ({
@@ -78,7 +84,7 @@ var map = new ol.Map({
                 tileSize: 512,
                 crossOrigin: 'anonymous',
 
-                attributions:"© OpenStreetMap Contributors | © MapBox | SMHI",
+                attributions:'<a href="https://www.maptiler.com/copyright/" target="_blank">&copy; MapTiler</a> <a href="https://www.openstreetmap.org/copyright" target="_blank">&copy; OpenStreetMap contributors</a> <a href="https://www.smhi.se/data/oppna-data/villkor-for-anvandning-1.30622" target="_blank">&copy; SMHI</a> | Map by <a href="https://github.com/JmsPae" target="_blank">James P</a>',
             }),
         }),
 
