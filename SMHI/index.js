@@ -4,7 +4,7 @@ function httpGetAsync(theUrl, callback) {
         if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
             callback(xmlHttp.responseText);
     }
-    xmlHttp.open("GET", theUrl, true); // true for asynchronous 
+    xmlHttp.open("GET", theUrl, true);
     xmlHttp.send(null);
 }
 
@@ -18,12 +18,14 @@ var colorPalette = {
 
 function formatUnixTime(timestamp) {
     var date = new Date(timestamp);
-    var now = Date.now();
+    var now = new Date().getTime();
     var diff = new Date(now - date);
 
 
-    // Will display time in 10:30 format
-    return diff.getMinutes() + " minutes ago.";
+    if (diff.getHours() > 1) {
+        return diff.getMinutes() + ((diff.getMinutes() > 1) ? " minutes ago." : " minute ago.");
+    }
+    return diff.getHours() + ((diff.getHours() > 1) ? " hours ago." : " hours ago.");
 }
 
 function lerpCols(col2, col1, x) {
@@ -67,8 +69,8 @@ const tempNear = function(feature) {
             text: new ol.style.Text({
                 font: '20px sans',
                 text: feature.get('stationValue') + "°C",
-                offsetX: 20,
-                offsetY: -20,
+                offsetX: 30,
+                offsetY: 20,
                 fill: new ol.style.Fill({
                   color: lerpPalette(feature.get('stationValue') / 30)
                 })
@@ -144,6 +146,7 @@ map.on('moveend', function(evt) {
     }
 });
 
+
 map.on('singleclick', function(evt) {
     var feat = null;
     
@@ -151,15 +154,60 @@ map.on('singleclick', function(evt) {
         function(feature, layer) {
             feat = feature;
         },
-        { hitTolerance: 10 }
+        { hitTolerance: 5 }
     );
 
     if (feat != null) {
         var str = '<div><b>'+feat.get('stationName')+'</b><br>';
         str += feat.get('stationValue') + '°C<br>'
-        str += formatUnixTime(feat.get('stationValueDate')) + '</div>';
+        str += formatUnixTime(feat.get('stationValueDate')) + '</div><br>';
+        str += '<canvas id="dataChart"></canvas>'
 
         popup.show(feat.getGeometry().getCoordinates(), str);
+
+        function onStationData(response) {
+            stationData = JSON.parse(response)['value'];
+
+            var dates = [];
+            var values = [];
+
+            for (var i in stationData) {
+                var dataPoint = stationData[i];
+                var date = new Date(dataPoint['date']);
+
+                dates.push(date.getHours() + ':00');
+
+                values.push(dataPoint['value']);
+            }
+            
+            
+            const data = {
+                labels: dates,
+                datasets: [{
+                    label: '°C',
+                    backgroundColor: 'rgb(50, 50, 50)',
+                    borderColor: 'rgb(50, 50, 50)',
+                    data: values,
+                }]
+            };
+            
+            const config = {
+                type: 'line',
+                data: data,
+                options: {
+                    lineTension: 0.5
+                }
+            };
+        
+            const myChart = new Chart(
+                document.getElementById('dataChart'),
+                config
+            );
+        }
+
+        httpGetAsync('https://opendata-download-metobs.smhi.se/api/version/1.0/parameter/1/station/'+feat.get('stationId')+'/period/latest-day/data.json', onStationData);
+
+        
     }
     else {
         popup.hide()
@@ -176,12 +224,13 @@ function onGetData(response) {
 
                 vectorSource.addFeature(new ol.Feature({
                     geometry: new ol.geom.Point(ol.proj.fromLonLat([station['longitude'], station['latitude']])),
+                    stationId: station['key'],
                     stationName: station['name'],
                     stationValue: station['value'][0]['value'],
                     stationValueDate: station['value'][0]['date']
                 }));
                 
-                console.log(station);
+                //console.log(station);
             }
         }
     }
