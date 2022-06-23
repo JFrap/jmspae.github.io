@@ -19,13 +19,13 @@ var colorPalette = {
 function formatUnixTime(timestamp) {
     var date = new Date(timestamp);
     var now = new Date().getTime();
-    var diff = new Date(now - date);
+    var diff = new Date(now - date.getTime());
 
 
-    if (diff.getHours() > 1) {
+    if (diff.getHours() < 2) {
         return diff.getMinutes() + ((diff.getMinutes() > 1) ? " minutes ago." : " minute ago.");
     }
-    return diff.getHours() + ((diff.getHours() > 1) ? " hours ago." : " hours ago.");
+    return (diff.getHours()-1) + ((diff.getHours() > 2) ? " hours ago." : " hours ago.");
 }
 
 function lerpCols(col2, col1, x) {
@@ -160,6 +160,9 @@ map.on('singleclick', function(evt) {
     if (feat != null) {
         var str = '<div><b>'+feat.get('stationName')+'</b><br>';
         str += feat.get('stationValue') + '°C<br>'
+        var quality = ((feat.get('stationValueQuality') == 'G') ? "Checked and approved" : "Unchecked/Aggregated");
+        
+        str += 'Quality: ' + quality + '<br>'
         str += formatUnixTime(feat.get('stationValueDate')) + '</div><br>';
         str += '<canvas id="dataChart"></canvas>'
 
@@ -175,11 +178,14 @@ map.on('singleclick', function(evt) {
                 var dataPoint = stationData[i];
                 var date = new Date(dataPoint['date']);
 
-                dates.push(date.getHours() + ':00');
+                var hours = date.getHours();
+                var minutes = "0" + date.getMinutes();
+
+                dates.push(hours + ':' + minutes.substring(-2));
 
                 values.push(dataPoint['value']);
             }
-            
+           
             
             const data = {
                 labels: dates,
@@ -227,7 +233,8 @@ function onGetData(response) {
                     stationId: station['key'],
                     stationName: station['name'],
                     stationValue: station['value'][0]['value'],
-                    stationValueDate: station['value'][0]['date']
+                    stationValueDate: station['value'][0]['date'],
+                    stationValueQuality: station['value'][0]['quality']
                 }));
                 
                 //console.log(station);
